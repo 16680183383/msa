@@ -84,9 +84,6 @@ public class RegistryClusterConfig {
                 case "2":
                     port = "8181";
                     break;
-                case "3":
-                    port = "8182";
-                    break;
                 default:
                     port = "8180";
             }

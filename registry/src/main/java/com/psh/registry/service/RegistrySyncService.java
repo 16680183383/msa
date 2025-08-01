@@ -27,10 +27,7 @@ public class RegistrySyncService {
     private ServiceRegistry serviceRegistry;
     
     private final RestTemplate restTemplate = new RestTemplate();
-    
-    /**
-     * 向其他registry实例发送同步请求
-     */
+
     public void syncToOtherInstances(String endpoint, SyncOperation operation) {
         List<String> otherUrls = clusterConfig.getOtherRegistryUrls();
         
@@ -72,10 +69,7 @@ public class RegistrySyncService {
                 operation.getServiceInstance().getServiceName(),
                 operation.getServiceInstance().getServiceId());
     }
-    
-    /**
-     * 简化的同步方法 - 直接传递Map数据
-     */
+
     public void syncSimpleToOtherInstances(String endpoint, Map<String, Object> payload) {
         List<String> otherUrls = clusterConfig.getOtherRegistryUrls();
         
@@ -108,10 +102,7 @@ public class RegistrySyncService {
         logger.info("简化同步操作完成: endpoint={}, serviceName={}, serviceId={}", 
                 endpoint, serviceName, serviceId);
     }
-    
-    /**
-     * 处理来自其他实例的同步注册请求
-     */
+
     public void handleSyncRegister(SyncOperation operation) {
         String sourceInstanceId = operation.getSourceInstanceId();
         String currentInstanceId = "registry-" + clusterConfig.getInstanceId();
@@ -145,10 +136,7 @@ public class RegistrySyncService {
                 operation.getServiceInstance().getServiceName(),
                 operation.getServiceInstance().getServiceId());
     }
-    
-    /**
-     * 处理来自其他实例的同步注销请求
-     */
+
     public void handleSyncUnregister(SyncOperation operation) {
         String sourceInstanceId = operation.getSourceInstanceId();
         String currentInstanceId = "registry-" + clusterConfig.getInstanceId();
@@ -182,10 +170,7 @@ public class RegistrySyncService {
                 operation.getServiceInstance().getServiceName(),
                 operation.getServiceInstance().getServiceId());
     }
-    
-    /**
-     * 处理来自其他实例的同步心跳请求
-     */
+
     public void handleSyncHeartbeat(SyncOperation operation) {
         String sourceInstanceId = operation.getSourceInstanceId();
         String currentInstanceId = "registry-" + clusterConfig.getInstanceId();

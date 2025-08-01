@@ -1,11 +1,10 @@
 package com.psh.timeservice.service;
 
+import com.psh.timeservice.model.ServiceInstance;
+import com.psh.timeservice.model.HeartbeatRequest;
 import org.springframework.http.*;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.web.client.RestTemplate;
-
-import java.util.HashMap;
-import java.util.Map;
 
 public class RegistryClient {
 
@@ -20,38 +19,38 @@ public class RegistryClient {
         this.restTemplate = new RestTemplate(factory);
     }
 
-    private HttpEntity<Map<String, Object>> buildRequest(String serviceName, String serviceId, String ip, int port) {
-        Map<String, Object> body = new HashMap<>();
-        body.put("serviceName", serviceName);
-        body.put("serviceId", serviceId);
-        body.put("ipAddress", ip);
-        body.put("port", port);
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_JSON);
-        return new HttpEntity<>(body, headers);
-    }
-
+    /**
+     * 注册服务
+     */
     public void register(String serviceName, String serviceId, String ip, int port) {
-        String url = registryUrl + "/api/register";
-        restTemplate.postForEntity(url, buildRequest(serviceName, serviceId, ip, port), String.class);
+        ServiceInstance instance = new ServiceInstance(serviceName, serviceId, ip, port);
+        sendPostRequest("/api/register", instance);
     }
 
+    /**
+     * 注销服务
+     */
     public void unregister(String serviceName, String serviceId, String ip, int port) {
-        String url = registryUrl + "/api/unregister";
-        restTemplate.postForEntity(url, buildRequest(serviceName, serviceId, ip, port), String.class);
+        ServiceInstance instance = new ServiceInstance(serviceName, serviceId, ip, port);
+        sendPostRequest("/api/unregister", instance);
     }
 
+    /**
+     * 发送心跳
+     */
     public void heartbeat(String serviceId, String ip, int port) {
-        String url = registryUrl + "/api/heartbeat";
+        HeartbeatRequest request = new HeartbeatRequest(serviceId, ip, port);
+        sendPostRequest("/api/heartbeat", request);
+    }
 
-        Map<String, Object> body = new HashMap<>();
-        body.put("serviceId", serviceId);
-        body.put("ipAddress", ip);
-        body.put("port", port);
-
+    /**
+     * 发送POST请求的通用方法
+     */
+    private <T> void sendPostRequest(String endpoint, T body) {
+        String url = registryUrl + endpoint;
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
+        
         restTemplate.postForEntity(url, new HttpEntity<>(body, headers), String.class);
     }
 }

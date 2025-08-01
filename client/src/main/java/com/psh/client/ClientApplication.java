@@ -1,6 +1,5 @@
 package com.psh.client;
 
-
 import com.psh.client.service.RegistryClient;
 import com.psh.client.service.LogService;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,10 +15,6 @@ import java.util.TimerTask;
 @SpringBootApplication
 public class ClientApplication implements CommandLineRunner {
 
-    public static void main(String[] args) {
-        SpringApplication.run(ClientApplication.class, args);
-    }
-
     @Value("${server.port}")
     private int port;
 
@@ -30,35 +25,36 @@ public class ClientApplication implements CommandLineRunner {
     private String serviceId;
 
     private final RegistryClient registryClient = new RegistryClient();
+    
     private final LogService logService = new LogService();
 
     private final Timer heartbeatTimer = new Timer();
     private final Timer logTimer = new Timer();
 
+    public static void main(String[] args) {
+        SpringApplication.run(ClientApplication.class, args);
+    }
 
     @Override
     public void run(String... args) throws Exception {
         ip = InetAddress.getLocalHost().getHostAddress();
         serviceId = "client-" + instanceId;
 
-        // 注册
         registryClient.register("client", serviceId, ip, port);
 
-        // 启动定时心跳
         heartbeatTimer.scheduleAtFixedRate(new TimerTask() {
             @Override
             public void run() {
                 registryClient.heartbeat(serviceId, ip, port);
             }
-        }, 0, 60_000); // 每60秒
+        }, 0, 60_000);
 
-        // 启动定时日志发送（可选功能）
         logTimer.scheduleAtFixedRate(new TimerTask() {
             @Override
             public void run() {
                 logService.sendLog("client", serviceId, "info", "Client status is OK.");
             }
-        }, 0, 1_000); // 每1秒
+        }, 0, 1_000);
     }
 
     @PreDestroy

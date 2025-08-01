@@ -1,6 +1,8 @@
 package com.psh.loggingservice.service;
 
 import com.psh.loggingservice.model.LogEntry;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -8,24 +10,22 @@ import java.util.*;
 @Service
 public class LogService {
     
-    // 使用内存存储日志
+    private static final Logger logger = LoggerFactory.getLogger(LogService.class);
+
     private final List<LogEntry> logs = Collections.synchronizedList(new ArrayList<>());
 
-    /**
-     * 添加日志
-     * @param logEntry 日志条目
-     */
     public void addLog(LogEntry logEntry) {
         logs.add(logEntry);
         
-        // 打印日志到控制台
-        System.out.println("Received log: " + logEntry);
+        // 使用SLF4J记录业务日志到文件
+        logger.info("收到业务日志: serviceName={}, serviceId={}, datetime={}, level={}, message={}", 
+                logEntry.getServiceName(), 
+                logEntry.getServiceId(), 
+                logEntry.getDatetime(), 
+                logEntry.getLevel(), 
+                logEntry.getMessage());
     }
 
-    /**
-     * 获取所有日志
-     * @return 所有日志列表
-     */
     public List<LogEntry> getAllLogs() {
         return new ArrayList<>(logs);
     }

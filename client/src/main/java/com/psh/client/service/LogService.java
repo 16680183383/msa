@@ -1,6 +1,5 @@
 package com.psh.client.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -13,18 +12,17 @@ import java.util.Map;
 import java.util.TimeZone;
 
 public class LogService {
+
+    private final String logCollectorUrl = "http://localhost:8480/api/logs";
     
     private final RestTemplate restTemplate = new RestTemplate();
-    private final ObjectMapper objectMapper = new ObjectMapper();
-    private final String logCollectorUrl = "http://localhost:8480/api/logs"; // 日志收集服务端口为8480
-    
+
     public void sendLog(String serviceName, String serviceId, String level, String message) {
         try {
             Map<String, Object> logData = new HashMap<>();
             logData.put("serviceName", serviceName);
             logData.put("serviceId", serviceId);
-            
-            // 生成GMT时间，带毫秒
+
             SimpleDateFormat gmtFormat = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS");
             gmtFormat.setTimeZone(TimeZone.getTimeZone("GMT"));
             logData.put("datetime", gmtFormat.format(new Date()));
