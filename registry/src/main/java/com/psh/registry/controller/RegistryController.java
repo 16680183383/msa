@@ -65,11 +65,11 @@ public class RegistryController {
         String ip = (String) payload.get("ipAddress");
         int port = (int) payload.get("port");
         
-        logger.debug("收到心跳请求: serviceId={}, ip={}, port={}", serviceId, ip, port);
+        logger.info("收到心跳请求: serviceId={}, ip={}, port={}", serviceId, ip, port);
         
         registry.heartbeat(serviceId, ip, port);
         
-        logger.debug("心跳处理成功: serviceId={}, ip={}, port={}", serviceId, ip, port);
+        logger.info("心跳处理成功: serviceId={}, ip={}, port={}", serviceId, ip, port);
         
         return Map.of("code", 200);
     }
@@ -78,20 +78,18 @@ public class RegistryController {
     public Object discover(@RequestParam(required = false) String name) {
         try {
             if (name != null) {
-                logger.debug("收到服务发现请求: serviceName={}", name);
+                logger.info("收到服务发现请求: serviceName={}", name);
                 ServiceInstance instance = registry.discover(name);
                 if (instance != null) {
-                    logger.debug("服务发现成功: serviceName={}, found={}", name, instance.getServiceId());
+                    logger.info("服务发现成功: serviceName={}, found={}", name, instance.getServiceId());
                 } else {
-                    logger.debug("服务发现失败: serviceName={}, 未找到服务", name);
+                    logger.info("服务发现失败: serviceName={}, 未找到服务", name);
                 }
                 return instance == null ? List.of() : List.of(instance);
             } else {
-                logger.debug("收到所有服务查询请求");
-                logger.debug("开始调用registry.getAllServices()");
+                logger.info("收到所有服务查询请求");
                 List<ServiceInstance> allServices = registry.getAllServices();
-                logger.debug("registry.getAllServices()调用完成，返回 {} 个服务实例", allServices.size());
-                logger.debug("准备返回结果");
+                logger.info("返回 {} 个服务实例", allServices.size());
                 return allServices;
             }
         } catch (Exception e) {
@@ -188,7 +186,7 @@ public class RegistryController {
     // 每10秒清理一次超时节点
     @Scheduled(fixedRate = 10000)
     public void cleanUp() {
-        logger.debug("开始清理超时服务实例");
+        logger.info("开始清理超时服务实例");
         int beforeCount = registry.getAllServices().size();
         
         registry.removeExpiredInstances(60_000); // 60秒心跳超时
@@ -199,7 +197,7 @@ public class RegistryController {
         if (removedCount > 0) {
             logger.info("清理完成: 移除了 {} 个超时服务实例", removedCount);
         } else {
-            logger.debug("清理完成: 没有超时的服务实例");
+            logger.info("清理完成: 没有超时的服务实例");
         }
     }
 

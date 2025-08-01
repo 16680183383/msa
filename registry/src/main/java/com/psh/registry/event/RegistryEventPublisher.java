@@ -17,40 +17,40 @@ public class RegistryEventPublisher {
     }
 
     public void publishRegisterEvent(RegistryEvent event) {
-        logger.debug("发布注册事件: serviceName={}, serviceId={}, sourceInstanceId={}", 
+        logger.info("发布注册事件: serviceName={}, serviceId={}, sourceInstanceId={}", 
                 event.getServiceInstance().getServiceName(), 
-                event.getServiceInstance().getServiceId(),
+                event.getServiceInstance().getServiceId(), 
                 event.getSourceInstanceId());
         
         eventPublisher.publishEvent(event);
         
-        logger.debug("注册事件发布完成: serviceName={}, serviceId={}", 
+        logger.info("注册事件发布完成: serviceName={}, serviceId={}", 
                 event.getServiceInstance().getServiceName(), 
                 event.getServiceInstance().getServiceId());
     }
-
+    
     public void publishUnregisterEvent(RegistryEvent event) {
-        logger.debug("发布注销事件: serviceName={}, serviceId={}, sourceInstanceId={}", 
+        logger.info("发布注销事件: serviceName={}, serviceId={}, sourceInstanceId={}", 
                 event.getServiceInstance().getServiceName(), 
-                event.getServiceInstance().getServiceId(),
+                event.getServiceInstance().getServiceId(), 
                 event.getSourceInstanceId());
         
         eventPublisher.publishEvent(event);
         
-        logger.debug("注销事件发布完成: serviceName={}, serviceId={}", 
+        logger.info("注销事件发布完成: serviceName={}, serviceId={}", 
                 event.getServiceInstance().getServiceName(), 
                 event.getServiceInstance().getServiceId());
     }
-
+    
     public void publishHeartbeatEvent(RegistryEvent event) {
-        logger.debug("发布心跳事件: serviceName={}, serviceId={}, sourceInstanceId={}", 
+        logger.info("发布心跳事件: serviceName={}, serviceId={}, sourceInstanceId={}", 
                 event.getServiceInstance().getServiceName(), 
-                event.getServiceInstance().getServiceId(),
+                event.getServiceInstance().getServiceId(), 
                 event.getSourceInstanceId());
         
         eventPublisher.publishEvent(event);
         
-        logger.debug("心跳事件发布完成: serviceName={}, serviceId={}", 
+        logger.info("心跳事件发布完成: serviceName={}, serviceId={}", 
                 event.getServiceInstance().getServiceName(), 
                 event.getServiceInstance().getServiceId());
     }

@@ -50,7 +50,7 @@ public class RegistryClusterConfig {
             }
         }
         
-        logger.debug("获取其他注册中心实例URL: instanceId={}, syncEnabled={}, clusterUrls={}, otherUrls={}", 
+        logger.info("获取其他注册中心实例URL: instanceId={}, syncEnabled={}, clusterUrls={}, otherUrls={}", 
                 instanceId, syncEnabled, clusterUrls, urls);
         
         return urls;
@@ -62,7 +62,7 @@ public class RegistryClusterConfig {
         
         // 检查URL是否包含当前端口
         if (url.contains(":" + currentPort)) {
-            logger.debug("排除当前实例URL: url={}, currentPort={}", url, currentPort);
+            logger.info("排除当前实例URL: url={}, currentPort={}", url, currentPort);
             return true;
         }
         

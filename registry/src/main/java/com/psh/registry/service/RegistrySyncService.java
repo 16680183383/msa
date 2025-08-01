@@ -34,7 +34,7 @@ public class RegistrySyncService {
     public void syncToOtherInstances(String endpoint, SyncOperation operation) {
         List<String> otherUrls = clusterConfig.getOtherRegistryUrls();
         
-        logger.debug("开始向其他实例同步操作: endpoint={}, operationType={}, serviceName={}, serviceId={}, 目标实例数={}", 
+        logger.info("开始向其他实例同步操作: endpoint={}, operationType={}, serviceName={}, serviceId={}, 目标实例数={}", 
                 endpoint, operation.getOperationType(), 
                 operation.getServiceInstance().getServiceName(),
                 operation.getServiceInstance().getServiceId(),
@@ -46,14 +46,14 @@ public class RegistrySyncService {
                 HttpHeaders headers = new HttpHeaders();
                 headers.setContentType(MediaType.APPLICATION_JSON);
                 
-                logger.debug("向实例发送同步请求: url={}, operationType={}, serviceName={}, serviceId={}", 
+                logger.info("向实例发送同步请求: url={}, operationType={}, serviceName={}, serviceId={}", 
                         url, operation.getOperationType(), 
                         operation.getServiceInstance().getServiceName(),
                         operation.getServiceInstance().getServiceId());
                 
                 restTemplate.postForEntity(url, new HttpEntity<>(operation, headers), Map.class);
                 
-                logger.debug("同步请求发送成功: url={}, operationType={}, serviceName={}, serviceId={}", 
+                logger.info("同步请求发送成功: url={}, operationType={}, serviceName={}, serviceId={}", 
                         url, operation.getOperationType(), 
                         operation.getServiceInstance().getServiceName(),
                         operation.getServiceInstance().getServiceId());
@@ -67,7 +67,7 @@ public class RegistrySyncService {
             }
         }
         
-        logger.debug("向其他实例同步操作完成: endpoint={}, operationType={}, serviceName={}, serviceId={}", 
+        logger.info("向其他实例同步操作完成: endpoint={}, operationType={}, serviceName={}, serviceId={}", 
                 endpoint, operation.getOperationType(), 
                 operation.getServiceInstance().getServiceName(),
                 operation.getServiceInstance().getServiceId());
@@ -82,7 +82,7 @@ public class RegistrySyncService {
         String serviceName = (String) payload.get("serviceName");
         String serviceId = (String) payload.get("serviceId");
         
-        logger.debug("开始简化同步操作: endpoint={}, serviceName={}, serviceId={}, 目标实例数={}", 
+        logger.info("开始简化同步操作: endpoint={}, serviceName={}, serviceId={}, 目标实例数={}", 
                 endpoint, serviceName, serviceId, otherUrls.size());
         
         for (String baseUrl : otherUrls) {
@@ -91,12 +91,12 @@ public class RegistrySyncService {
                 HttpHeaders headers = new HttpHeaders();
                 headers.setContentType(MediaType.APPLICATION_JSON);
                 
-                logger.debug("向实例发送简化同步请求: url={}, serviceName={}, serviceId={}", 
+                logger.info("向实例发送简化同步请求: url={}, serviceName={}, serviceId={}", 
                         url, serviceName, serviceId);
                 
                 restTemplate.postForEntity(url, new HttpEntity<>(payload, headers), Map.class);
                 
-                logger.debug("简化同步请求发送成功: url={}, serviceName={}, serviceId={}", 
+                logger.info("简化同步请求发送成功: url={}, serviceName={}, serviceId={}", 
                         url, serviceName, serviceId);
                 
             } catch (Exception e) {
@@ -105,7 +105,7 @@ public class RegistrySyncService {
             }
         }
         
-        logger.debug("简化同步操作完成: endpoint={}, serviceName={}, serviceId={}", 
+        logger.info("简化同步操作完成: endpoint={}, serviceName={}, serviceId={}", 
                 endpoint, serviceName, serviceId);
     }
     

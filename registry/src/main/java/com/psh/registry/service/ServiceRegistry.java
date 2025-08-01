@@ -199,16 +199,14 @@ public class ServiceRegistry {
     }
 
     public synchronized List<ServiceInstance> getAllServices() {
-        logger.debug("开始执行getAllServices()方法");
+        logger.info("获取所有服务实例");
         List<ServiceInstance> list = new ArrayList<>();
-        logger.debug("registry大小: {}", registry.size());
         
         try {
             for (Map<String, ServiceInstance> serviceMap : registry.values()) {
-                logger.debug("处理服务映射，大小: {}", serviceMap.size());
                 list.addAll(serviceMap.values());
             }
-            logger.debug("获取所有服务实例，共 {} 个", list.size());
+            logger.info("获取所有服务实例，共 {} 个", list.size());
             return list;
         } catch (Exception e) {
             logger.error("getAllServices()方法执行异常: {}", e.getMessage(), e);
@@ -217,60 +215,47 @@ public class ServiceRegistry {
     }
 
     public synchronized ServiceInstance discover(String serviceName) {
-        logger.debug("服务发现请求: serviceName={}", serviceName);
+        logger.info("服务发现请求: serviceName={}", serviceName);
         
-        Map<String, ServiceInstance> services = registry.get(serviceName);
-        if (services == null || services.isEmpty()) {
-            logger.debug("服务发现失败: serviceName={}, 服务不存在或没有实例", serviceName);
+        Map<String, ServiceInstance> serviceMap = registry.get(serviceName);
+        if (serviceMap == null || serviceMap.isEmpty()) {
+            logger.info("服务发现失败: serviceName={}, 服务不存在或没有实例", serviceName);
             return null;
         }
-
-        List<ServiceInstance> list = new ArrayList<>(services.values());
+        
+        // 获取所有可用的服务实例
+        List<ServiceInstance> availableInstances = new ArrayList<>(serviceMap.values());
+        
+        // 使用轮询算法选择实例
         AtomicInteger index = roundRobinIndex.computeIfAbsent(serviceName, k -> new AtomicInteger(0));
-        int i = index.getAndIncrement() % list.size();
-        ServiceInstance selected = list.get(i);
+        int currentIndex = index.getAndIncrement() % availableInstances.size();
+        ServiceInstance selectedInstance = availableInstances.get(currentIndex);
         
-        logger.debug("服务发现成功: serviceName={}, 选择实例={}, 总实例数={}", 
-                serviceName, selected.getServiceId(), list.size());
+        logger.info("服务发现成功: serviceName={}, serviceId={}, 选择实例={}, 总实例数={}", 
+                serviceName, selectedInstance.getServiceId(), currentIndex, availableInstances.size());
         
-        return selected;
+        return selectedInstance;
     }
 
-    public synchronized void removeExpiredInstances(long timeoutMillis) {
-        long now = System.currentTimeMillis();
-        int totalRemoved = 0;
+    public synchronized void removeExpiredInstances(long timeout) {
+        logger.info("开始清理超时服务实例，超时时间: {}ms", timeout);
         
-        logger.debug("开始清理超时服务实例，超时时间: {}ms", timeoutMillis);
+        long currentTime = System.currentTimeMillis();
+        int removedCount = 0;
         
-        for (Map.Entry<String, Map<String, ServiceInstance>> entry : registry.entrySet()) {
-            String serviceName = entry.getKey();
-            Map<String, ServiceInstance> serviceMap = entry.getValue();
-            
-            int beforeCount = serviceMap.size();
-            serviceMap.values().removeIf(instance -> {
-                boolean expired = now - instance.getLastHeartbeat() > timeoutMillis;
-                if (expired) {
-                    logger.info("移除超时服务实例: serviceName={}, serviceId={}, ip={}, port={}, 最后心跳时间={}, 超时时间={}ms", 
-                            serviceName, instance.getServiceId(), instance.getIpAddress(), instance.getPort(),
-                            new Date(instance.getLastHeartbeat()), now - instance.getLastHeartbeat());
+        for (Map<String, ServiceInstance> serviceMap : registry.values()) {
+            Iterator<Map.Entry<String, ServiceInstance>> iterator = serviceMap.entrySet().iterator();
+            while (iterator.hasNext()) {
+                ServiceInstance instance = iterator.next().getValue();
+                if (currentTime - instance.getLastHeartbeat() > timeout) {
+                    iterator.remove();
+                    removedCount++;
+                    logger.info("移除超时服务实例: serviceName={}, serviceId={}", 
+                            instance.getServiceName(), instance.getServiceId());
                 }
-                return expired;
-            });
-            
-            int afterCount = serviceMap.size();
-            int removed = beforeCount - afterCount;
-            totalRemoved += removed;
-            
-            if (removed > 0) {
-                logger.info("服务 {} 清理完成: 移除了 {} 个超时实例，剩余 {} 个实例", 
-                        serviceName, removed, afterCount);
             }
         }
         
-        if (totalRemoved > 0) {
-            logger.info("超时服务实例清理完成: 总共移除了 {} 个实例", totalRemoved);
-        } else {
-            logger.debug("超时服务实例清理完成: 没有需要移除的实例");
-        }
+        logger.info("超时服务实例清理完成: 移除了 {} 个实例", removedCount);
     }
 }
