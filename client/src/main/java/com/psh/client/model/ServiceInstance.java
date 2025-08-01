@@ -1,4 +1,4 @@
-package com.psh.registry.model;
+package com.psh.client.model;
 
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -14,11 +14,6 @@ public class ServiceInstance {
     private String serviceId;
     private String ipAddress;
     private int port;
-    private long lastHeartbeat;
-
-    public String getKey() {
-        return serviceId + "@" + ipAddress + ":" + port;
-    }
 
     @Override
     public String toString() {
@@ -27,7 +22,6 @@ public class ServiceInstance {
                 ", serviceId='" + serviceId + '\'' +
                 ", ipAddress='" + ipAddress + '\'' +
                 ", port=" + port +
-                ", lastHeartbeat=" + lastHeartbeat +
                 '}';
     }
-}
+} 

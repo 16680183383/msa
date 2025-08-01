@@ -3,6 +3,8 @@ package com.psh.registry.service;
 import com.psh.registry.config.RegistryClusterConfig;
 import com.psh.registry.model.ServiceInstance;
 import com.psh.registry.model.SyncOperation;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -16,6 +18,8 @@ import java.util.Map;
 @Service
 public class RegistrySyncService {
     
+    private static final Logger logger = LoggerFactory.getLogger(RegistrySyncService.class);
+    
     @Autowired
     private RegistryClusterConfig clusterConfig;
     
@@ -23,10 +27,7 @@ public class RegistrySyncService {
     private ServiceRegistry serviceRegistry;
     
     private final RestTemplate restTemplate = new RestTemplate();
-    
-    /**
-     * 向其他registry实例发送同步请求
-     */
+
     public void syncToOtherInstances(String endpoint, SyncOperation operation) {
         List<String> otherUrls = clusterConfig.getOtherRegistryUrls();
         
@@ -36,67 +37,112 @@ public class RegistrySyncService {
                 HttpHeaders headers = new HttpHeaders();
                 headers.setContentType(MediaType.APPLICATION_JSON);
                 
-                restTemplate.postForEntity(url, new HttpEntity<>(operation, headers), Map.class);
-            } catch (Exception e) {
-                System.err.println("Failed to sync to " + baseUrl + ": " + e.getMessage());
-            }
-        }
-    }
-    
-    /**
-     * 简化的同步方法 - 直接传递Map数据
-     */
-    public void syncSimpleToOtherInstances(String endpoint, Map<String, Object> payload) {
-        List<String> otherUrls = clusterConfig.getOtherRegistryUrls();
-        
-        for (String baseUrl : otherUrls) {
-            try {
-                String url = baseUrl + endpoint;
-                HttpHeaders headers = new HttpHeaders();
-                headers.setContentType(MediaType.APPLICATION_JSON);
+                logger.info("向实例发送同步请求: url={}, operationType={}, serviceName={}, serviceId={}", 
+                        url, operation.getOperationType(), 
+                        operation.getServiceInstance().getServiceName(),
+                        operation.getServiceInstance().getServiceId());
                 
-                restTemplate.postForEntity(url, new HttpEntity<>(payload, headers), Map.class);
+                restTemplate.postForEntity(url, new HttpEntity<>(operation, headers), Map.class);
+                
+                logger.info("同步请求发送成功: url={}, operationType={}, serviceName={}, serviceId={}", 
+                        url, operation.getOperationType(), 
+                        operation.getServiceInstance().getServiceName(),
+                        operation.getServiceInstance().getServiceId());
+                
             } catch (Exception e) {
-                System.err.println("Failed simple sync to " + baseUrl + ": " + e.getMessage());
+                logger.error("同步请求发送失败: url={}, operationType={}, serviceName={}, serviceId={}, error={}", 
+                        baseUrl + endpoint, operation.getOperationType(), 
+                        operation.getServiceInstance().getServiceName(),
+                        operation.getServiceInstance().getServiceId(),
+                        e.getMessage(), e);
             }
         }
+        
+        logger.info("向其他实例同步操作完成: endpoint={}, operationType={}, serviceName={}, serviceId={}", 
+                endpoint, operation.getOperationType(), 
+                operation.getServiceInstance().getServiceName(),
+                operation.getServiceInstance().getServiceId());
     }
-    
-    /**
-     * 处理来自其他实例的同步注册请求
-     */
+
+
+
     public void handleSyncRegister(SyncOperation operation) {
-        if (operation.getSourceInstanceId().equals("registry-" + clusterConfig.getInstanceId())) {
+        String sourceInstanceId = operation.getSourceInstanceId();
+        String currentInstanceId = "registry-" + clusterConfig.getInstanceId();
+
+        if (sourceInstanceId.equals(currentInstanceId)) {
             return; // 避免循环同步
         }
         
         if (operation.getServiceInstance() == null) {
+            logger.warn("同步注册请求失败: serviceInstance为null, sourceInstanceId={}", sourceInstanceId);
             return;
         }
         
+        logger.info("开始处理同步注册: sourceInstanceId={}, serviceName={}, serviceId={}, ip={}, port={}", 
+                sourceInstanceId, 
+                operation.getServiceInstance().getServiceName(),
+                operation.getServiceInstance().getServiceId(),
+                operation.getServiceInstance().getIpAddress(),
+                operation.getServiceInstance().getPort());
+        
         serviceRegistry.registerSync(operation.getServiceInstance());
+        
+        logger.info("同步注册处理完成: sourceInstanceId={}, serviceName={}, serviceId={}", 
+                sourceInstanceId, 
+                operation.getServiceInstance().getServiceName(),
+                operation.getServiceInstance().getServiceId());
     }
-    
-    /**
-     * 处理来自其他实例的同步注销请求
-     */
+
     public void handleSyncUnregister(SyncOperation operation) {
-        if (operation.getSourceInstanceId().equals("registry-" + clusterConfig.getInstanceId())) {
+        String sourceInstanceId = operation.getSourceInstanceId();
+        String currentInstanceId = "registry-" + clusterConfig.getInstanceId();
+
+        if (sourceInstanceId.equals(currentInstanceId)) {
             return; // 避免循环同步
         }
         
+        if (operation.getServiceInstance() == null) {
+            logger.warn("同步注销请求失败: serviceInstance为null, sourceInstanceId={}", sourceInstanceId);
+            return;
+        }
+        
+        logger.info("开始处理同步注销: sourceInstanceId={}, serviceName={}, serviceId={}, ip={}, port={}", 
+                sourceInstanceId, 
+                operation.getServiceInstance().getServiceName(),
+                operation.getServiceInstance().getServiceId(),
+                operation.getServiceInstance().getIpAddress(),
+                operation.getServiceInstance().getPort());
+        
         serviceRegistry.unregisterSync(operation.getServiceInstance());
+        
+        logger.info("同步注销处理完成: sourceInstanceId={}, serviceName={}, serviceId={}", 
+                sourceInstanceId, 
+                operation.getServiceInstance().getServiceName(),
+                operation.getServiceInstance().getServiceId());
     }
-    
-    /**
-     * 处理来自其他实例的同步心跳请求
-     */
+
     public void handleSyncHeartbeat(SyncOperation operation) {
-        if (operation.getSourceInstanceId().equals("registry-" + clusterConfig.getInstanceId())) {
+        String sourceInstanceId = operation.getSourceInstanceId();
+        String currentInstanceId = "registry-" + clusterConfig.getInstanceId();
+        
+        logger.info("处理同步心跳请求: sourceInstanceId={}, currentInstanceId={}, serviceName={}, serviceId={}",
+                sourceInstanceId, currentInstanceId, 
+                operation.getServiceInstance().getServiceName(),
+                operation.getServiceInstance().getServiceId());
+        
+        if (sourceInstanceId.equals(currentInstanceId)) {
             return; // 避免循环同步
+        }
+        
+        if (operation.getServiceInstance() == null) {
+            logger.warn("同步心跳请求失败: serviceInstance为null, sourceInstanceId={}", sourceInstanceId);
+            return;
         }
         
         ServiceInstance instance = operation.getServiceInstance();
+
         serviceRegistry.heartbeatSync(instance.getServiceId(), instance.getIpAddress(), instance.getPort());
+
     }
 } 
