@@ -199,7 +199,6 @@ public class ServiceRegistry {
     }
 
     public synchronized List<ServiceInstance> getAllServices() {
-        logger.info("获取所有服务实例");
         List<ServiceInstance> list = new ArrayList<>();
         
         try {
@@ -222,8 +221,7 @@ public class ServiceRegistry {
             logger.info("服务发现失败: serviceName={}, 服务不存在或没有实例", serviceName);
             return null;
         }
-        
-        // 获取所有可用的服务实例
+
         List<ServiceInstance> availableInstances = new ArrayList<>(serviceMap.values());
         
         // 使用轮询算法选择实例
@@ -238,8 +236,6 @@ public class ServiceRegistry {
     }
 
     public synchronized void removeExpiredInstances(long timeout) {
-        logger.info("开始清理超时服务实例，超时时间: {}ms", timeout);
-        
         long currentTime = System.currentTimeMillis();
         int removedCount = 0;
         
@@ -256,6 +252,8 @@ public class ServiceRegistry {
             }
         }
         
-        logger.info("超时服务实例清理完成: 移除了 {} 个实例", removedCount);
+        // 记录清理后的实例数量
+        int afterCount = getAllServices().size();
+        logger.info("超时服务实例清理完成: 移除了 {} 个实例，清理后服务实例总数: {}", removedCount, afterCount);
     }
 }

@@ -10,8 +10,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Component;
 
-import java.util.HashMap;
-import java.util.Map;
+
 
 @Component
 public class RegistryEventListener {
@@ -51,19 +50,13 @@ public class RegistryEventListener {
                 event.getServiceInstance().getServiceName(), event.getServiceInstance().getServiceId(),
                 event.getServiceInstance().getIpAddress(), event.getServiceInstance().getPort());
         
-        // 使用简化的同步接口
-        ServiceInstance instance = event.getServiceInstance();
-        Map<String, Object> payload = new HashMap<>();
-        payload.put("serviceName", instance.getServiceName());
-        payload.put("serviceId", instance.getServiceId());
-        payload.put("ipAddress", instance.getIpAddress());
-        payload.put("port", instance.getPort());
-        payload.put("lastHeartbeat", System.currentTimeMillis()); // 添加心跳时间
-        
-        syncService.syncSimpleToOtherInstances("/api/sync/simple-register", payload);
+        // 转换为同步操作并发送到其他实例
+        SyncOperation operation = new SyncOperation("REGISTER", event.getServiceInstance(), 
+                "registry-" + clusterConfig.getInstanceId());
+        syncService.syncToOtherInstances("/api/sync/register", operation);
         
         logger.info("注册事件同步处理完成: serviceName={}, serviceId={}", 
-                instance.getServiceName(), instance.getServiceId());
+                event.getServiceInstance().getServiceName(), event.getServiceInstance().getServiceId());
     }
     
     @EventListener

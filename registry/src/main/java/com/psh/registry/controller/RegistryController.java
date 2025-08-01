@@ -4,7 +4,7 @@ import com.psh.registry.model.ServiceInstance;
 import com.psh.registry.model.SyncOperation;
 import com.psh.registry.service.RegistrySyncService;
 import com.psh.registry.service.ServiceRegistry;
-import com.psh.registry.config.RegistryClusterConfig;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,8 +26,7 @@ public class RegistryController {
     @Autowired
     private RegistrySyncService syncService;
     
-    @Autowired
-    private RegistryClusterConfig clusterConfig;
+
 
     public RegistryController(ServiceRegistry registry) {
         this.registry = registry;
@@ -123,18 +122,8 @@ public class RegistryController {
     @PostMapping("/sync/register")
     public ResponseEntity<Map<String, Object>> syncRegister(@RequestBody SyncOperation operation) {
         try {
-            logger.info("收到同步注册请求: sourceInstanceId={}, serviceName={}, serviceId={}", 
-                    operation.getSourceInstanceId(), 
-                    operation.getServiceInstance().getServiceName(),
-                    operation.getServiceInstance().getServiceId());
-            
             syncService.handleSyncRegister(operation);
-            
-            logger.info("同步注册处理完成: sourceInstanceId={}, serviceName={}, serviceId={}", 
-                    operation.getSourceInstanceId(), 
-                    operation.getServiceInstance().getServiceName(),
-                    operation.getServiceInstance().getServiceId());
-            
+
             return ResponseEntity.ok(Map.of("code", 200));
         } catch (Exception e) {
             logger.error("同步注册失败: error={}", e.getMessage(), e);
@@ -168,61 +157,9 @@ public class RegistryController {
         }
     }
 
-    // 简化的同步接口 - 直接传递服务信息
-    @PostMapping("/sync/simple-register")
-    public ResponseEntity<Map<String, Object>> simpleSyncRegister(@RequestBody Map<String, Object> payload) {
-        try {
-            String serviceName = (String) payload.get("serviceName");
-            String serviceId = (String) payload.get("serviceId");
-            String ipAddress = (String) payload.get("ipAddress");
-            int port = (int) payload.get("port");
-            
-            logger.info("收到简化同步注册请求: serviceName={}, serviceId={}, ip={}, port={}", 
-                    serviceName, serviceId, ipAddress, port);
-            
-            ServiceInstance instance = new ServiceInstance();
-            instance.setServiceName(serviceName);
-            instance.setServiceId(serviceId);
-            instance.setIpAddress(ipAddress);
-            instance.setPort(port);
-            
-            // 优先使用传入的心跳时间，如果没有则使用当前时间
-            Object lastHeartbeatObj = payload.get("lastHeartbeat");
-            if (lastHeartbeatObj != null) {
-                instance.setLastHeartbeat((Long) lastHeartbeatObj);
-            } else {
-                instance.setLastHeartbeat(System.currentTimeMillis());
-            }
-            
-            registry.registerSync(instance);
-            
-            logger.info("简化同步注册处理完成: serviceName={}, serviceId={}, ip={}, port={}", 
-                    serviceName, serviceId, ipAddress, port);
-            
-            return ResponseEntity.ok(Map.of("code", 200));
-        } catch (Exception e) {
-            logger.error("简化同步注册失败: error={}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("code", 500, "error", "简化同步注册失败: " + e.getMessage()));
-        }
-    }
-
-    // 每10秒清理一次超时节点
     @Scheduled(fixedRate = 10000)
     public void cleanUp() {
-        logger.info("开始清理超时服务实例");
-        int beforeCount = registry.getAllServices().size();
-        
         registry.removeExpiredInstances(60_000); // 60秒心跳超时
-        
-        int afterCount = registry.getAllServices().size();
-        int removedCount = beforeCount - afterCount;
-        
-        if (removedCount > 0) {
-            logger.info("清理完成: 移除了 {} 个超时服务实例", removedCount);
-        } else {
-            logger.info("清理完成: 没有超时的服务实例");
-        }
     }
 
 }

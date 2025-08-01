@@ -19,33 +19,21 @@ public class RegistryClient {
         this.restTemplate = new RestTemplate(factory);
     }
 
-    /**
-     * 注册服务
-     */
     public void register(String serviceName, String serviceId, String ip, int port) {
         ServiceInstance instance = new ServiceInstance(serviceName, serviceId, ip, port);
         sendPostRequest("/api/register", instance);
     }
 
-    /**
-     * 注销服务
-     */
     public void unregister(String serviceName, String serviceId, String ip, int port) {
         ServiceInstance instance = new ServiceInstance(serviceName, serviceId, ip, port);
         sendPostRequest("/api/unregister", instance);
     }
 
-    /**
-     * 发送心跳
-     */
     public void heartbeat(String serviceId, String ip, int port) {
         HeartbeatRequest request = new HeartbeatRequest(serviceId, ip, port);
         sendPostRequest("/api/heartbeat", request);
     }
 
-    /**
-     * 发送POST请求的通用方法
-     */
     private <T> void sendPostRequest(String endpoint, T body) {
         String url = registryUrl + endpoint;
         HttpHeaders headers = new HttpHeaders();
