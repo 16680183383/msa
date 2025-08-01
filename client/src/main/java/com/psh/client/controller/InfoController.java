@@ -2,6 +2,7 @@ package com.psh.client.controller;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.psh.client.service.RegistryClient;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
@@ -15,16 +16,25 @@ public class InfoController {
 
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper mapper = new ObjectMapper();
-
-    private final String registryUrl = "http://localhost:8180/api/discovery?name=time-service";
+    private final RegistryClient registryClient = new RegistryClient();
 
     @GetMapping("/getInfo")
     public Map<String, Object> getInfo() {
         Map<String, Object> response = new HashMap<>();
         try {
-            JsonNode serviceNode = restTemplate.getForObject(registryUrl, JsonNode.class);
+            // 使用RegistryClient进行服务发现
+            Object serviceResult = registryClient.discover("time-service");
+            
+            if (serviceResult == null) {
+                response.put("error", "time-service 不可用");
+                response.put("result", null);
+                return response;
+            }
 
-            if (serviceNode == null || !serviceNode.isArray() || serviceNode.size() == 0) {
+            // 将Object转换为JsonNode
+            JsonNode serviceNode = mapper.valueToTree(serviceResult);
+
+            if (!serviceNode.isArray() || serviceNode.size() == 0) {
                 response.put("error", "time-service 不可用");
                 response.put("result", null);
                 return response;

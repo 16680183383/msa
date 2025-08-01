@@ -56,4 +56,17 @@ public class RegistryClient {
 
         restTemplate.postForEntity(url, new HttpEntity<>(body, headers), String.class);
     }
+
+    public Object discover(String serviceName) {
+        String url = registryUrl + "/api/discovery";
+        if (serviceName != null && !serviceName.trim().isEmpty()) {
+            url += "?name=" + serviceName;
+        }
+        
+        return restTemplate.getForObject(url, Object.class);
+    }
+
+    public Object getAllServices() {
+        return discover(null);
+    }
 }
