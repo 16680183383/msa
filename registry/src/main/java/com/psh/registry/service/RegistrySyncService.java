@@ -9,11 +9,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 
 @Service
 public class RegistrySyncService {
@@ -26,9 +29,18 @@ public class RegistrySyncService {
     @Autowired
     private ServiceRegistry serviceRegistry;
     
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
 
-    public void syncToOtherInstances(String endpoint, SyncOperation operation) {
+    public RegistrySyncService() {
+        // 创建带超时设置的RestTemplate
+        SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(3000); // 连接超时3秒
+        factory.setReadTimeout(5000);    // 读取超时5秒
+        this.restTemplate = new RestTemplate(factory);
+    }
+
+    @Async("taskExecutor")
+    public CompletableFuture<Void> syncToOtherInstances(String endpoint, SyncOperation operation) {
         List<String> otherUrls = clusterConfig.getOtherRegistryUrls();
         
         for (String baseUrl : otherUrls) {
@@ -62,6 +74,8 @@ public class RegistrySyncService {
                 endpoint, operation.getOperationType(), 
                 operation.getServiceInstance().getServiceName(),
                 operation.getServiceInstance().getServiceId());
+        
+        return CompletableFuture.completedFuture(null);
     }
 
 

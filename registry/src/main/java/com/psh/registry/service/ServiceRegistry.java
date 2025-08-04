@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
+import com.psh.registry.model.EasyResponse;
 
 @Component
 public class ServiceRegistry {
@@ -23,107 +24,183 @@ public class ServiceRegistry {
     @Autowired
     private RegistryEventPublisher eventPublisher;
 
-    public synchronized void register(ServiceInstance instance) {
+    public EasyResponse register(ServiceInstance instance) {
         logger.info("开始注册服务: serviceName={}, serviceId={}, ip={}, port={}", 
                 instance.getServiceName(), instance.getServiceId(), instance.getIpAddress(), instance.getPort());
         
-        // 设置注册时的心跳时间为当前时间
-        instance.setLastHeartbeat(System.currentTimeMillis());
-        
-        registry.putIfAbsent(instance.getServiceName(), new ConcurrentHashMap<>());
-        Map<String, ServiceInstance> serviceMap = registry.get(instance.getServiceName());
-        
-        // 检查是否已存在相同的服务实例
-        ServiceInstance existing = serviceMap.get(instance.getKey());
-        if (existing != null) {
-            logger.warn("服务实例已存在，将进行更新: serviceName={}, serviceId={}, ip={}, port={}", 
-                    instance.getServiceName(), instance.getServiceId(), instance.getIpAddress(), instance.getPort());
+        try {
+            // 如果serviceId为空或null，自动生成一个唯一的serviceId
+            if (instance.getServiceId() == null || instance.getServiceId().trim().isEmpty()) {
+                String generatedServiceId = generateServiceId(instance.getServiceName());
+                instance.setServiceId(generatedServiceId);
+                logger.info("自动生成serviceId: serviceName={}, generatedServiceId={}", 
+                        instance.getServiceName(), generatedServiceId);
+            }
+            
+            // 设置注册时的心跳时间为当前时间
+            instance.setLastHeartbeat(System.currentTimeMillis());
+            
+            registry.putIfAbsent(instance.getServiceName(), new ConcurrentHashMap<>());
+            Map<String, ServiceInstance> serviceMap = registry.get(instance.getServiceName());
+            
+            // 检查是否已存在相同的服务实例
+            ServiceInstance existing = serviceMap.get(instance.getKey());
+            if (existing != null) {
+                String errorMsg = "服务实例已存在" + instance.getServiceName() +
+                        ", serviceId=" + instance.getServiceId() +
+                        ", ip=" + instance.getIpAddress() +
+                        ", port=" + instance.getPort();
+                logger.warn(errorMsg);
+                return new EasyResponse(errorMsg, null);
+            }
+            
+            serviceMap.put(instance.getKey(), instance);
+            
+            logger.info("服务注册完成: serviceName={}, serviceId={}, ip={}, port={}, 当前该服务共有 {} 个实例", 
+                    instance.getServiceName(), instance.getServiceId(), instance.getIpAddress(), instance.getPort(),
+                    serviceMap.size());
+            
+            // 发布注册事件，由事件监听器处理同步
+            RegistryEvent event = new RegistryEvent("REGISTER", instance, "registry-local");
+            eventPublisher.publishRegisterEvent(event);
+            
+            logger.debug("已发布注册事件: serviceName={}, serviceId={}", 
+                    instance.getServiceName(), instance.getServiceId());
+            
+            return new EasyResponse("服务注册成功: " + instance.getServiceName() + ":" + instance.getServiceId());
+        } catch (Exception e) {
+            String errorMsg = "服务注册失败: " + e.getMessage();
+            logger.error(errorMsg + " serviceName={}, error={}", instance.getServiceName(), e.getMessage(), e);
+            return new EasyResponse(errorMsg, null);
         }
-        
-        serviceMap.put(instance.getKey(), instance);
-        
-        logger.info("服务注册完成: serviceName={}, serviceId={}, ip={}, port={}, 当前该服务共有 {} 个实例", 
-                instance.getServiceName(), instance.getServiceId(), instance.getIpAddress(), instance.getPort(),
-                serviceMap.size());
-        
-        // 发布注册事件，由事件监听器处理同步
-        RegistryEvent event = new RegistryEvent("REGISTER", instance, "registry-local");
-        eventPublisher.publishRegisterEvent(event);
-        
-        logger.debug("已发布注册事件: serviceName={}, serviceId={}", 
-                instance.getServiceName(), instance.getServiceId());
     }
 
-    public synchronized void unregister(ServiceInstance instance) {
+    private String generateServiceId(String serviceName) {
+        // 获取当前服务名下的实例数量
+        Map<String, ServiceInstance> serviceMap = registry.get(serviceName);
+        int existingCount = 0;
+        if (serviceMap != null) {
+            existingCount = serviceMap.size();
+        }
+        
+        logger.debug("生成serviceId: serviceName={}, existingCount={}", serviceName, existingCount);
+        
+        // 序号从1开始
+        int newNumber = existingCount + 1;
+        
+        // 检查是否已经有这个序号的服务实例
+        while (serviceMap != null && serviceMap.containsKey(serviceName + "-" + newNumber)) {
+            newNumber++;
+            logger.debug("序号{}已存在，尝试下一个序号: {}", newNumber - 1, newNumber);
+        }
+        
+        String generatedId = serviceName + "-" + newNumber;
+        logger.debug("生成serviceId完成: serviceName={}, generatedId={}", serviceName, generatedId);
+        
+        return generatedId;
+    }
+
+    public EasyResponse unregister(ServiceInstance instance) {
         logger.info("开始注销服务: serviceName={}, serviceId={}, ip={}, port={}", 
                 instance.getServiceName(), instance.getServiceId(), instance.getIpAddress(), instance.getPort());
         
-        Map<String, ServiceInstance> serviceMap = registry.get(instance.getServiceName());
-        if (serviceMap != null) {
-            String key = instance.getKey();
-            ServiceInstance existing = serviceMap.get(key);
-            if (existing != null &&
-                    existing.getServiceId().equals(instance.getServiceId()) &&
-                    existing.getIpAddress().equals(instance.getIpAddress()) &&
-                    existing.getPort() == instance.getPort()) {
-                serviceMap.remove(key);
-                
-                logger.info("服务注销完成: serviceName={}, serviceId={}, ip={}, port={}, 当前该服务剩余 {} 个实例", 
-                        instance.getServiceName(), instance.getServiceId(), instance.getIpAddress(), instance.getPort(),
-                        serviceMap.size());
-                
-                // 发布注销事件，由事件监听器处理同步
-                RegistryEvent event = new RegistryEvent("UNREGISTER", instance, "registry-local");
-                eventPublisher.publishUnregisterEvent(event);
-                
-                logger.debug("已发布注销事件: serviceName={}, serviceId={}", 
-                        instance.getServiceName(), instance.getServiceId());
+        try {
+            Map<String, ServiceInstance> serviceMap = registry.get(instance.getServiceName());
+            if (serviceMap != null) {
+                String key = instance.getKey();
+                ServiceInstance existing = serviceMap.get(key);
+                if (existing != null &&
+                        existing.getServiceName().equals(instance.getServiceName()) &&
+                        existing.getIpAddress().equals(instance.getIpAddress()) &&
+                        existing.getPort() == instance.getPort()) {
+                    serviceMap.remove(key);
+                    
+                    logger.info("服务注销完成: serviceName={}, serviceId={}, ip={}, port={}, 当前该服务剩余 {} 个实例", 
+                            instance.getServiceName(), instance.getServiceId(), instance.getIpAddress(), instance.getPort(),
+                            serviceMap.size());
+                    
+                    // 发布注销事件，由事件监听器处理同步
+                    RegistryEvent event = new RegistryEvent("UNREGISTER", instance, "registry-local");
+                    eventPublisher.publishUnregisterEvent(event);
+                    
+                    logger.debug("已发布注销事件: serviceName={}, serviceId={}", 
+                            instance.getServiceName(), instance.getServiceId());
+                    
+                    return new EasyResponse("服务注销成功: " + instance.getServiceName() + ":" + instance.getServiceId());
+                } else {
+                    String errorMsg = "服务注销失败，未找到匹配的服务实例";
+                    logger.warn(errorMsg + ": serviceName={}, serviceId={}, ip={}, port={}", 
+                            instance.getServiceName(), instance.getServiceId(), instance.getIpAddress(), instance.getPort());
+                    return new EasyResponse(errorMsg, null);
+                }
             } else {
-                logger.warn("服务注销失败，未找到匹配的服务实例: serviceName={}, serviceId={}, ip={}, port={}", 
-                        instance.getServiceName(), instance.getServiceId(), instance.getIpAddress(), instance.getPort());
+                String errorMsg = "服务注销失败，服务不存在: " + instance.getServiceName();
+                logger.warn(errorMsg);
+                return new EasyResponse(errorMsg, null);
             }
-        } else {
-            logger.warn("服务注销失败，服务不存在: serviceName={}", instance.getServiceName());
+        } catch (Exception e) {
+            String errorMsg = "服务注销失败: " + e.getMessage();
+            logger.error(errorMsg + " serviceName={}, error={}", instance.getServiceName(), e.getMessage(), e);
+            return new EasyResponse(errorMsg, null);
         }
     }
 
-    public synchronized void heartbeat(String serviceId, String ip, int port) {
+    public EasyResponse heartbeat(String serviceId, String ip, int port) {
         logger.debug("处理心跳请求: serviceId={}, ip={}, port={}", serviceId, ip, port);
         
-        boolean found = false;
-        for (Map<String, ServiceInstance> services : registry.values()) {
-            for (ServiceInstance instance : services.values()) {
-                if (instance.getServiceId().equals(serviceId)
-                        && instance.getIpAddress().equals(ip)
-                        && instance.getPort() == port) {
-                    long oldHeartbeat = instance.getLastHeartbeat();
-                    instance.setLastHeartbeat(System.currentTimeMillis());
-                    found = true;
-                    
-                    logger.debug("心跳更新成功: serviceName={}, serviceId={}, ip={}, port={}, 上次心跳={}, 当前心跳={}", 
-                            instance.getServiceName(), serviceId, ip, port, 
-                            new Date(oldHeartbeat), new Date(instance.getLastHeartbeat()));
-                    
-                    // 发布心跳事件，由事件监听器处理同步
-                    RegistryEvent event = new RegistryEvent("HEARTBEAT", instance, "registry-local");
-                    eventPublisher.publishHeartbeatEvent(event);
-                    
-                    logger.debug("已发布心跳事件: serviceName={}, serviceId={}", 
-                            instance.getServiceName(), instance.getServiceId());
-                    return;
+        try {
+            boolean found = false;
+            for (Map<String, ServiceInstance> services : registry.values()) {
+                for (ServiceInstance instance : services.values()) {
+                    if (instance.getServiceId().equals(serviceId)
+                            && instance.getIpAddress().equals(ip)
+                            && instance.getPort() == port) {
+                        long oldHeartbeat = instance.getLastHeartbeat();
+                        instance.setLastHeartbeat(System.currentTimeMillis());
+                        found = true;
+                        
+                        logger.debug("心跳更新成功: serviceName={}, serviceId={}, ip={}, port={}, 上次心跳={}, 当前心跳={}", 
+                                instance.getServiceName(), serviceId, ip, port, 
+                                new Date(oldHeartbeat), new Date(instance.getLastHeartbeat()));
+                        
+                        // 发布心跳事件，由事件监听器处理同步
+                        RegistryEvent event = new RegistryEvent("HEARTBEAT", instance, "registry-local");
+                        eventPublisher.publishHeartbeatEvent(event);
+                        
+                        logger.debug("已发布心跳事件: serviceName={}, serviceId={}", 
+                                instance.getServiceName(), instance.getServiceId());
+                        
+                        return new EasyResponse("心跳处理成功: " + serviceId);
+                    }
                 }
             }
-        }
-        
-        if (!found) {
-            logger.warn("心跳处理失败，未找到服务实例: serviceId={}, ip={}, port={}", serviceId, ip, port);
+            
+            if (!found) {
+                String errorMsg = "心跳处理失败，未找到服务实例: " + serviceId;
+                logger.warn(errorMsg);
+                return new EasyResponse(errorMsg, null);
+            }
+            
+            return new EasyResponse("心跳处理成功: " + serviceId);
+        } catch (Exception e) {
+            String errorMsg = "心跳处理失败: " + e.getMessage();
+            logger.error(errorMsg + " serviceId={}, error={}", serviceId, e.getMessage(), e);
+            return new EasyResponse(errorMsg, null);
         }
     }
 
     // 同步方法 - 不发布事件，避免循环同步
-    public synchronized void registerSync(ServiceInstance instance) {
+    public void registerSync(ServiceInstance instance) {
         logger.info("开始同步注册服务: serviceName={}, serviceId={}, ip={}, port={}", 
                 instance.getServiceName(), instance.getServiceId(), instance.getIpAddress(), instance.getPort());
+        
+        // 如果serviceId为空或null，自动生成一个唯一的serviceId
+        if (instance.getServiceId() == null || instance.getServiceId().trim().isEmpty()) {
+            String generatedServiceId = generateServiceId(instance.getServiceName());
+            instance.setServiceId(generatedServiceId);
+            logger.info("同步注册时自动生成serviceId: serviceName={}, generatedServiceId={}", 
+                    instance.getServiceName(), generatedServiceId);
+        }
         
         // 确保同步注册时也设置心跳时间
         if (instance.getLastHeartbeat() == 0) {
@@ -146,7 +223,7 @@ public class ServiceRegistry {
                 serviceMap.size());
     }
 
-    public synchronized void unregisterSync(ServiceInstance instance) {
+    public void unregisterSync(ServiceInstance instance) {
         logger.info("开始同步注销服务: serviceName={}, serviceId={}, ip={}, port={}", 
                 instance.getServiceName(), instance.getServiceId(), instance.getIpAddress(), instance.getPort());
         
@@ -172,7 +249,7 @@ public class ServiceRegistry {
         }
     }
 
-    public synchronized void heartbeatSync(String serviceId, String ip, int port) {
+    public void heartbeatSync(String serviceId, String ip, int port) {
         logger.debug("处理同步心跳请求: serviceId={}, ip={}, port={}", serviceId, ip, port);
         
         boolean found = false;
@@ -198,7 +275,7 @@ public class ServiceRegistry {
         }
     }
 
-    public synchronized List<ServiceInstance> getAllServices() {
+    public List<ServiceInstance> getAllServices() {
         List<ServiceInstance> list = new ArrayList<>();
         
         try {
@@ -213,7 +290,7 @@ public class ServiceRegistry {
         }
     }
 
-    public synchronized ServiceInstance discover(String serviceName) {
+    public ServiceInstance discover(String serviceName) {
         logger.info("服务发现请求: serviceName={}", serviceName);
         
         Map<String, ServiceInstance> serviceMap = registry.get(serviceName);
@@ -235,7 +312,7 @@ public class ServiceRegistry {
         return selectedInstance;
     }
 
-    public synchronized void removeExpiredInstances(long timeout) {
+    public void removeExpiredInstances(long timeout) {
         long currentTime = System.currentTimeMillis();
         int removedCount = 0;
         

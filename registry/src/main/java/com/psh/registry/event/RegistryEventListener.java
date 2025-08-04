@@ -50,10 +50,17 @@ public class RegistryEventListener {
                 event.getServiceInstance().getServiceName(), event.getServiceInstance().getServiceId(),
                 event.getServiceInstance().getIpAddress(), event.getServiceInstance().getPort());
         
-        // 转换为同步操作并发送到其他实例
+        // 转换为同步操作并异步发送到其他实例
         SyncOperation operation = new SyncOperation("REGISTER", event.getServiceInstance(), 
                 "registry-" + clusterConfig.getInstanceId());
-        syncService.syncToOtherInstances("/api/sync/register", operation);
+        syncService.syncToOtherInstances("/api/sync/register", operation)
+                .exceptionally(throwable -> {
+                    logger.error("注册事件同步失败: serviceName={}, serviceId={}, error={}", 
+                            event.getServiceInstance().getServiceName(), 
+                            event.getServiceInstance().getServiceId(), 
+                            throwable.getMessage());
+                    return null;
+                });
         
         logger.info("注册事件同步处理完成: serviceName={}, serviceId={}", 
                 event.getServiceInstance().getServiceName(), event.getServiceInstance().getServiceId());
@@ -86,10 +93,17 @@ public class RegistryEventListener {
                 event.getServiceInstance().getServiceName(), event.getServiceInstance().getServiceId(),
                 event.getServiceInstance().getIpAddress(), event.getServiceInstance().getPort());
         
-        // 转换为同步操作并发送到其他实例
+        // 转换为同步操作并异步发送到其他实例
         SyncOperation operation = new SyncOperation("UNREGISTER", event.getServiceInstance(), 
                 "registry-" + clusterConfig.getInstanceId());
-        syncService.syncToOtherInstances("/api/sync/unregister", operation);
+        syncService.syncToOtherInstances("/api/sync/unregister", operation)
+                .exceptionally(throwable -> {
+                    logger.error("注销事件同步失败: serviceName={}, serviceId={}, error={}", 
+                            event.getServiceInstance().getServiceName(), 
+                            event.getServiceInstance().getServiceId(), 
+                            throwable.getMessage());
+                    return null;
+                });
         
         logger.info("注销事件同步处理完成: serviceName={}, serviceId={}", 
                 event.getServiceInstance().getServiceName(), event.getServiceInstance().getServiceId());
@@ -122,10 +136,17 @@ public class RegistryEventListener {
                 event.getServiceInstance().getServiceName(), event.getServiceInstance().getServiceId(),
                 event.getServiceInstance().getIpAddress(), event.getServiceInstance().getPort());
         
-        // 转换为同步操作并发送到其他实例
+        // 转换为同步操作并异步发送到其他实例
         SyncOperation operation = new SyncOperation("HEARTBEAT", event.getServiceInstance(), 
                 "registry-" + clusterConfig.getInstanceId());
-        syncService.syncToOtherInstances("/api/sync/heartbeat", operation);
+        syncService.syncToOtherInstances("/api/sync/heartbeat", operation)
+                .exceptionally(throwable -> {
+                    logger.error("心跳事件同步失败: serviceName={}, serviceId={}, error={}", 
+                            event.getServiceInstance().getServiceName(), 
+                            event.getServiceInstance().getServiceId(), 
+                            throwable.getMessage());
+                    return null;
+                });
         
         logger.info("心跳事件同步处理完成: serviceName={}, serviceId={}", 
                 event.getServiceInstance().getServiceName(), event.getServiceInstance().getServiceId());

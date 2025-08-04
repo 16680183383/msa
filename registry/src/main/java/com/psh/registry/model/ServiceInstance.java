@@ -5,6 +5,9 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @Setter
 @Getter
 @NoArgsConstructor
@@ -17,7 +20,19 @@ public class ServiceInstance {
     private long lastHeartbeat;
 
     public String getKey() {
-        return serviceId + "@" + ipAddress + ":" + port;
+        return serviceName + "@" + ipAddress + ":" + port;
+    }
+
+    /**
+     * 返回用于API响应的Map，不包含内部字段
+     */
+    public Map<String, Object> toResponseMap() {
+        Map<String, Object> response = new HashMap<>();
+        response.put("serviceName", serviceName);
+        response.put("serviceId", serviceId);
+        response.put("ipAddress", ipAddress);
+        response.put("port", port);
+        return response;
     }
 
     @Override

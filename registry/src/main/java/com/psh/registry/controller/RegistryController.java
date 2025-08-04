@@ -4,6 +4,7 @@ import com.psh.registry.model.ServiceInstance;
 import com.psh.registry.model.SyncOperation;
 import com.psh.registry.service.RegistrySyncService;
 import com.psh.registry.service.ServiceRegistry;
+import com.psh.registry.model.EasyResponse;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,16 +41,18 @@ public class RegistryController {
             
             // 确保注册时设置心跳时间为当前时间
             instance.setLastHeartbeat(System.currentTimeMillis());
-            registry.register(instance);
+            EasyResponse response = registry.register(instance);
             
-            logger.info("服务注册成功: serviceName={}, serviceId={}, ip={}, port={}", 
-                    instance.getServiceName(), instance.getServiceId(), instance.getIpAddress(), instance.getPort());
-            
-            return ResponseEntity.ok(Map.of("code", 200));
+            if (response.getError() != null) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", response.getError()));
+            } else {
+                String result = response.getResult();
+                return ResponseEntity.ok(Map.of("result", result));
+            }
         } catch (Exception e) {
             logger.error("服务注册失败: serviceName={}, error={}", instance.getServiceName(), e.getMessage(), e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("code", 500, "error", "服务注册失败: " + e.getMessage()));
+                    .body(Map.of("error", "服务注册失败: " + e.getMessage()));
         }
     }
 
@@ -59,16 +62,16 @@ public class RegistryController {
             logger.info("收到服务注销请求: serviceName={}, serviceId={}, ip={}, port={}", 
                     instance.getServiceName(), instance.getServiceId(), instance.getIpAddress(), instance.getPort());
             
-            registry.unregister(instance);
+            EasyResponse response = registry.unregister(instance);
             
-            logger.info("服务注销成功: serviceName={}, serviceId={}, ip={}, port={}", 
-                    instance.getServiceName(), instance.getServiceId(), instance.getIpAddress(), instance.getPort());
-            
-            return ResponseEntity.ok(Map.of("code", 200));
+            if (response.getError() != null) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", response.getError()));
+            } else {
+                return ResponseEntity.ok(Map.of("result", response.getResult()));
+            }
         } catch (Exception e) {
-            logger.error("服务注销失败: serviceName={}, error={}", instance.getServiceName(), e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("code", 500, "error", "服务注销失败: " + e.getMessage()));
+            
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
         }
     }
 
@@ -81,27 +84,27 @@ public class RegistryController {
             
             logger.info("收到心跳请求: serviceId={}, ip={}, port={}", serviceId, ip, port);
             
-            registry.heartbeat(serviceId, ip, port);
+            EasyResponse response = registry.heartbeat(serviceId, ip, port);
             
-            logger.info("心跳处理成功: serviceId={}, ip={}, port={}", serviceId, ip, port);
-            
-            return ResponseEntity.ok(Map.of("code", 200));
+            if (response.getError() != null) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", response.getError()));
+            } else {
+                return ResponseEntity.ok(Map.of("result", response.getResult()));
+            }
         } catch (Exception e) {
-            logger.error("心跳处理失败: error={}", e.getMessage(), e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("code", 500, "error", "心跳处理失败: " + e.getMessage()));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of("error", e.getMessage()));
         }
     }
 
     @GetMapping("/discovery")
-    public ResponseEntity<List<ServiceInstance>> discover(@RequestParam(required = false) String name) {
+    public ResponseEntity<List<Map<String, Object>>> discover(@RequestParam(required = false) String name) {
         try {
             if (name != null) {
                 logger.info("收到服务发现请求: serviceName={}", name);
                 ServiceInstance instance = registry.discover(name);
                 if (instance != null) {
                     logger.info("服务发现成功: serviceName={}, found={}", name, instance.getServiceId());
-                    return ResponseEntity.ok(List.of(instance));
+                    return ResponseEntity.ok(List.of(instance.toResponseMap()));
                 } else {
                     logger.info("服务发现失败: serviceName={}, 未找到服务", name);
                     return ResponseEntity.ok(List.of());
@@ -109,8 +112,11 @@ public class RegistryController {
             } else {
                 logger.info("收到所有服务查询请求");
                 List<ServiceInstance> allServices = registry.getAllServices();
-                logger.info("返回 {} 个服务实例", allServices.size());
-                return ResponseEntity.ok(allServices);
+                List<Map<String, Object>> responseList = allServices.stream()
+                        .map(ServiceInstance::toResponseMap)
+                        .toList();
+                logger.info("返回 {} 个服务实例", responseList.size());
+                return ResponseEntity.ok(responseList);
             }
         } catch (Exception e) {
             logger.error("服务发现过程中发生异常: name={}, error={}", name, e.getMessage(), e);
